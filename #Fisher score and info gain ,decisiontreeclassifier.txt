@@ -1,0 +1,458 @@
+#Fisher score and info gain knowledge discovery+classification+decision tree
+
+pip install ucimlrepo
+from ucimlrepo import fetch_ucirepo
+page_blocks_classification = fetch_ucirepo(id=78)
+X = page_blocks_classification.data.features
+y = page_blocks_classification.data.targets
+print(page_blocks_classification.metadata)
+print(page_blocks_classification.variables)
+
+print("First 5 rows of X (Features):")
+display(X.head())
+print("\nFirst 5 rows of y (Targets):")
+display(y.head())
+
+
+#mean of each class
+import numpy as np
+import pandas as pd
+def class_means(X, y):
+    if isinstance(y, pd.DataFrame) and y.shape[1] == 1:
+      y_series = y.iloc[:, 0]
+    else:
+      y_series = y
+    classes = np.unique(y_series)
+    mean_dict = {}
+    for cls in classes:
+      mean_dict[cls] = X[y_series == cls].mean(axis=0)
+    return mean_dict
+
+scores=class_means(X, y)
+print(scores)
+
+#2 Standard deviation for each class
+def class_stds(X, y):
+    if isinstance(y, pd.DataFrame) and y.shape[1] == 1:
+      y_series = y.iloc[:, 0]
+    else:
+      y_series = y
+    classes = np.unique(y_series)
+    std_dict = {}
+    for cls in classes:
+      std_dict[cls] = X[y_series == cls].std(axis=0)
+    return std_dict
+
+class_std_devs = class_stds(X, y)
+print("Standard Deviation of attribute variables for each class:")
+print(class_std_devs)
+
+#3 Fisher Score for every attribute
+
+def fisher_scores(X, y, class_means_dict, class_stds_dict):
+    unique_classes = np.unique(y)
+    num_features = X.shape[1]
+    fisher_score = pd.Series(index=X.columns, dtype=float)
+
+    overall_mean = X.mean(axis=0)
+
+    for feature_idx, feature_name in enumerate(X.columns):
+        numerator = 0
+        denominator = 0
+
+        for cls in unique_classes:
+            mean_cls_feature = class_means_dict[cls][feature_name]
+            std_cls_feature = class_stds_dict[cls][feature_name]
+
+            n_cls = np.sum(y == cls)
+
+            numerator += n_cls * (mean_cls_feature - overall_mean[feature_name])**2
+
+            denominator += n_cls * (std_cls_feature**2)
+
+        fisher_score[feature_name] = numerator / denominator
+
+    return fisher_score
+
+fisher_scores_result = fisher_scores(X, y, scores, class_std_devs)
+print("Fisher Scores for each feature:")
+print(fisher_scores_result)
+
+#4 Rank all attributes based on Fisher Score.
+
+def rank_features(scores):
+    ranked_indices = scores.sort_values(ascending=False).index
+    return ranked_indices
+
+ranked_indices = rank_features(fisher_scores_result)
+print("Feature ranking (highest to lowest Fisher Score):")
+print(ranked_indices.tolist())
+
+#5 Select the top k features where k < n.
+
+def select_top_k_features(X, scores, k):
+    ranked_indices = scores.sort_values(ascending=False).index
+    top_features = ranked_indices[:k]
+    X_top_k = X[top_features]
+    return X_top_k, top_features
+
+k = 5
+X_top_k, top_features = select_top_k_features(X, fisher_scores_result, k)
+print(f"Top {k} feature names:", top_features.tolist())
+print(f"First 5 rows of X with top {k} features:")
+print(X_top_k.head())
+
+
+#Task 2
+import kagglehub
+
+# Download latest version
+path = kagglehub.dataset_download("usman27/buy-computer")
+
+print("Path to dataset files:", path)
+import os
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+
+files = os.listdir(path)
+print(f"Files in {path}: {files}")
+csv_file = [f for f in files if f.endswith('.csv')][0]
+full_path = os.path.join(path, csv_file)
+
+df_buy = pd.read_csv(full_path)
+
+print("\nFirst 5 rows of df_buy:")
+display(df_buy.head())
+print("\nDataFrame Information:")
+df_buy.info()
+
+print("\nColumns in dataset:", df_buy.columns.tolist())
+
+#entropy
+
+#1. Compute entropy of the dataset
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+
+df_buy_proc = df_buy.drop(columns=['id'])
+
+le = LabelEncoder()
+for col in df_buy_proc.columns:
+    df_buy_proc[col] = le.fit_transform(df_buy_proc[col])
+
+X_buy = df_buy_proc.drop(columns=['Buy_Computer'])
+y_buy = df_buy_proc['Buy_Computer']
+
+print("Encoded Features (X_buy) first 5 rows:")
+display(X_buy.head())
+print("\nEncoded Target (y_buy) first 5 rows:")
+display(y_buy.head())
+print("\nEncoding complete.")
+import numpy as np
+
+def calculate_entropy(target_series):
+    counts = target_series.value_counts()
+    probabilities = counts / len(target_series)
+    entropy = -np.sum([p * np.log2(p) for p in probabilities if p > 0])
+
+    return entropy
+
+total_entropy = calculate_entropy(y_buy)
+
+print(f"Total Dataset Entropy (y_buy): {total_entropy:.4f}")
+#2. Compute entropy for each attribute.
+def calculate_conditional_entropy(feature_series, target_series):
+    unique_values = feature_series.unique()
+    total_samples = len(feature_series)
+    conditional_entropy = 0
+
+    for value in unique_values:
+        subset_target = target_series[feature_series == value]
+
+        weight = len(subset_target) / total_samples
+
+        subset_entropy = calculate_entropy(subset_target)
+
+        conditional_entropy += weight * subset_entropy
+
+    return conditional_entropy
+
+conditional_entropies = {}
+for column in X_buy.columns:
+    c_entropy = calculate_conditional_entropy(X_buy[column], y_buy)
+    conditional_entropies[column] = c_entropy
+
+conditional_entropies_series = pd.Series(conditional_entropies)
+
+print("Conditional Entropy for each attribute:")
+print(conditional_entropies_series)
+#3. Calculate Information Gain for each attribute.
+import pandas as pd
+information_gains = total_entropy - conditional_entropies_series
+
+information_gains.name = "Information Gain"
+
+print("Information Gain for each attribute:")
+print(information_gains)
+#4. Select the top k attributes with highest gain.
+
+ranked_features = information_gains.sort_values(ascending=False)
+k = 3
+top_k_features = ranked_features.head(k)
+df_top_features = top_k_features.reset_index()
+df_top_features.columns = ['Attribute', 'Information Gain']
+
+print("Full Ranking of Attributes by Information Gain:")
+print(ranked_features)
+
+print(f"\nTop {k} Attributes selected for classification:")
+display(df_top_features)
+
+import matplotlib.pyplot as plt
+plt.figure(figsize=(10, 6))
+plt.bar(information_gains.index, information_gains.values, color='skyblue', label='Information Gain')
+plt.title('Information Gain by Attribute for Buy-Computer Dataset')
+plt.xlabel('Attributes')
+plt.ylabel('Information Gain')
+plt.legend()
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.show()
+
+
+
+#Task 3
+!pip install ucimlrepo
+import pandas as pd
+import pandas as pd
+url = "https://raw.githubusercontent.com/jbrownlee/Datasets/master/pima-indians-diabetes.data.csv"
+
+column_names = ['Pregnancies', 'Glucose', 'BloodPressure', 'SkinThickness', 'Insulin', 'BMI', 'DiabetesPedigreeFunction', 'Age', 'Outcome']
+diabetes_df = pd.read_csv(url, names=column_names)
+
+df_features = diabetes_df.drop(columns=['Outcome'])
+df_targets = diabetes_df[['Outcome']]
+
+print("First 5 rows of the Pima Indians Diabetes dataset:")
+display(diabetes_df.head())
+num_records, num_attributes = diabetes_df.shape
+print(f"Total number of records: {num_records}")
+print(f"Total number of attributes: {num_attributes}")
+
+print("\nData types for each attribute:")
+print(diabetes_df.dtypes)
+
+print("\nDataset Information Overview:")
+diabetes_df.info()
+# 1. Get raw counts of the 'Outcome' column
+class_counts = diabetes_df['Outcome'].value_counts()
+
+# 2. Calculate percentage distribution
+class_percentages = diabetes_df['Outcome'].value_counts(normalize=True) * 100
+
+# 3. Print the results to analyze class distribution
+print("Class Distribution (Counts):")
+print(class_counts)
+
+print("\nClass Distribution (Percentages):")
+print(class_percentages.map('{:.2f}%'.format))
+
+# 4. Brief interpretation based on the output
+print(f"\nTotal records: {len(diabetes_df)}")
+
+import pandas as pd
+
+# 1. Generate standard descriptive statistics
+summary_stats = diabetes_df.describe().T
+
+# 2. Calculate the median for each attribute
+medians = diabetes_df.median()
+summary_stats['median'] = medians
+
+# 3. Calculate the range (Max - Min) for each attribute
+# .describe() already provides 'min' and 'max'
+summary_stats['range'] = summary_stats['max'] - summary_stats['min']
+
+# 4. Reorder columns for better readability
+columns_order = ['count', 'mean', 'median', 'std', 'min', 'max', 'range', '25%', '50%', '75%']
+summary_stats = summary_stats[columns_order]
+
+# 5. Display the final summary statistics table
+print("Summary Statistics for Pima Indians Diabetes Dataset:")
+display(summary_stats)
+
+#missing 
+#Task 4
+
+columns_with_invalid_zeros = ['Glucose', 'BloodPressure', 'SkinThickness', 'Insulin', 'BMI']
+invalid_zero_counts = {}
+
+for col in columns_with_invalid_zeros:
+    invalid_zero_counts[col] = (diabetes_df[col] == 0).sum()
+
+print("Number of '0' values (potential invalid data) in key columns:")
+print(invalid_zero_counts)
+
+for col in columns_with_invalid_zeros:
+    diabetes_df[col] = diabetes_df[col].replace(0, medians[col])
+
+print("Number of '0' values after median imputation:")
+for col in columns_with_invalid_zeros:
+    print(f"{col}: {(diabetes_df[col] == 0).sum()}")
+
+class_counts = diabetes_df['Outcome'].value_counts()
+class_percentages = diabetes_df['Outcome'].value_counts(normalize=True) * 100
+
+print("Absolute frequency of each class (0 = Non-diabetic, 1 = Diabetic):")
+print(class_counts)
+
+print("\nPercentage distribution of classes:")
+print(class_percentages.map('{:.2f}%'.format))
+
+ratio = class_counts[0] / class_counts[1]
+print(f"\nRatio of Non-diabetic to Diabetic cases: {ratio:.2f}:1")
+
+X_diabetes = diabetes_df.drop('Outcome', axis=1)
+y_diabetes = diabetes_df['Outcome']
+
+print("First 5 rows of features (X_diabetes):")
+display(X_diabetes.head())
+print("\nFirst 5 rows of target (y_diabetes):")
+display(y_diabetes.head())
+
+from sklearn.preprocessing import StandardScaler
+
+scaler = StandardScaler()
+X_scaled_diabetes = scaler.fit_transform(X_diabetes)
+X_scaled_diabetes = pd.DataFrame(X_scaled_diabetes, columns=X_diabetes.columns)
+
+print("First 5 rows of scaled features (X_scaled_diabetes):")
+display(X_scaled_diabetes.head())
+print("Normalization complete.")
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Select a few features to visualize their distributions after normalization
+selected_features = ['Glucose', 'BMI', 'Age', 'Pregnancies']
+
+plt.figure(figsize=(15, 10))
+for i, feature in enumerate(selected_features):
+    plt.subplot(2, 2, i + 1) # Create a 2x2 grid for subplots
+    sns.histplot(X_scaled_diabetes[feature], kde=True)
+    plt.title(f'Distribution of Normalized {feature}')
+    plt.xlabel(f'Normalized {feature}')
+    plt.ylabel('Density')
+plt.tight_layout()
+plt.show()
+
+print("Visualized distributions of selected normalized features.")
+
+
+//creating derived attribute
+#Task 5
+
+import pandas as pd
+
+# 1. Define bins and labels for BMI categorization
+bins = [0, 18.5, 25, 30, float('inf')]
+labels = ['Underweight', 'Normal', 'Overweight', 'Obese']
+
+# 2. Create the 'BMI_Category' column
+diabetes_df['BMI_Category'] = pd.cut(diabetes_df['BMI'], bins=bins, labels=labels, right=False)
+
+# 3. Display the first few rows to verify
+print("First 5 rows with the new BMI_Category column:")
+display(diabetes_df[['BMI', 'BMI_Category']].head())
+
+# 4. Calculate and print the frequency distribution
+bmi_dist = diabetes_df['BMI_Category'].value_counts()
+print("\nFrequency distribution of BMI_Category:")
+print(bmi_dist)
+
+# Percentage distribution
+bmi_perc = diabetes_df['BMI_Category'].value_counts(normalize=True) * 100
+print("\nPercentage distribution of BMI_Category:")
+print(bmi_perc.map('{:.2f}%'.format))
+
+//decision tree classifier
+#Task 6
+
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier, export_text
+import pandas as pd
+
+# 1. Prepare feature matrix X and target vector y
+X_dt = diabetes_df.drop(columns=['Outcome', 'BMI_Category'])
+y_dt = diabetes_df['Outcome']
+
+# 2. Split the data (80% train, 20% test)
+X_train, X_test, y_train, y_test = train_test_split(X_dt, y_dt, test_size=0.2, random_state=42)
+
+# 3. Initialize Decision Tree with max_depth=3 for readability
+dt_clf = DecisionTreeClassifier(max_depth=3, random_state=42)
+
+# 4. Fit the classifier
+dt_clf.fit(X_train, y_train)
+
+# 5. Extract and map feature importances
+importances = pd.Series(dt_clf.feature_importances_, index=X_dt.columns).sort_values(ascending=False)
+print("Feature Importances:")
+print(importances)
+
+# 6. Generate human-readable IF-THEN rules
+tree_rules = export_text(dt_clf, feature_names=list(X_dt.columns))
+print("\nDecision Tree Classification Rules:")
+print(tree_rules)
+
+
+#Task 7
+
+from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, ConfusionMatrixDisplay
+import matplotlib.pyplot as plt
+
+# 1. Make predictions on the test set
+y_pred = dt_clf.predict(X_test)
+
+# 2. Calculate evaluation metrics
+accuracy = accuracy_score(y_test, y_pred)
+precision = precision_score(y_test, y_pred)
+recall = recall_score(y_test, y_pred)
+conf_matrix = confusion_matrix(y_test, y_pred)
+
+# 3. Print the performance summary
+print("--- Decision Tree Model Evaluation ---")
+print(f"Accuracy:  {accuracy:.4f}")
+print(f"Precision: {precision:.4f}")
+print(f"Recall:    {recall:.4f}")
+
+# 4. Visualize the Confusion Matrix
+plt.figure(figsize=(8, 6))
+disp = ConfusionMatrixDisplay(confusion_matrix=conf_matrix, display_labels=['Non-diabetic', 'Diabetic'])
+disp.plot(cmap=plt.cm.Blues, values_format='d')
+plt.title('Confusion Matrix: Decision Tree Prediction')
+plt.show()
+
+#Task 8
+
+from sklearn.tree import plot_tree
+import matplotlib.pyplot as plt
+
+# 1. Set up the figure size for better readability
+plt.figure(figsize=(20, 10))
+
+# 2. Plot the decision tree with feature and class names
+plot_tree(dt_clf,
+          feature_names=list(X_dt.columns),
+          class_names=['Non-diabetic', 'Diabetic'],
+          filled=True,
+          rounded=True,
+          fontsize=12)
+
+# 3. Add a title and display
+plt.title("Decision Tree Visualization for Diabetes Prediction", fontsize=16)
+plt.show()
+
+# 4. Briefly re-display importance for context
+print("Top Predictive Attributes:")
+print(importances.head(3))
+
