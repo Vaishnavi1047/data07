@@ -1,0 +1,436 @@
+#Class imbalance-modeltrainsplit-resampling-underover
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import kagglehub
+
+# Download latest version
+path = kagglehub.dataset_download("mlg-ulb/creditcardfraud")
+
+print("Path to dataset files:", path)
+import pandas as pd
+df=pd.read_csv('/kaggle/input/creditcardfraud/creditcard.csv')
+df.head()
+df.shape
+
+#no of sample
+print(df['Class'].value_counts())
+
+#count plot and percentage plot
+plt.figure()
+sns.countplot(x='Class', data=df)
+plt.title("Class Distribution")
+plt.xlabel("Class")
+plt.ylabel("Count")
+plt.show()
+class_percent = df['Class'].value_counts(normalize=True) * 100
+plt.figure()
+class_percent.plot(kind='bar')
+plt.title("Class Distribution (Percentage)")
+plt.xlabel("Class")
+plt.ylabel("Percentage")
+plt.show()
+print(class_percent)
+
+
+majority_cnt=df['Class'].value_counts()[0]
+minority_cnt=df['Class'].value_counts()[1]
+ratio=majority_cnt/minority_cnt
+print("Imbalance ratio:",ratio)
+#Severaly imbalanced
+
+#Traning baseline classifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+X = df.drop(columns=['Class'])
+Y=df['Class']
+X_train,X_test,Y_train,Y_test=train_test_split(
+X,Y,
+test_size=0.2,
+random_state=42,
+stratify=Y
+)
+print("Training Set Size:", X_train.shape)
+print("Testing Set Size:", X_test.shape)
+
+
+#Logistic regression
+from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import confusion_matrix, classification_report
+import seaborn as sns
+import matplotlib.pyplot as plt
+scaler=StandardScaler()
+X_train_scaled=scaler.fit_transform(X_train)
+X_test_scaled=scaler.transform(X_test)
+model=LogisticRegression(max_iter=1000)
+model.fit(X_train_scaled,Y_train)
+Y_pred=model.predict(X_test_scaled)
+cm=confusion_matrix(Y_test,Y_pred)
+print("Confusion Matrix:")
+print(cm)
+plt.figure()
+sns.heatmap(cm, annot=True, fmt="d")
+plt.title("Confusion Matrix")
+plt.xlabel("Predicted Label")
+plt.ylabel("Actual Label")
+plt.show()
+
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+accuracy = accuracy_score(Y_test, Y_pred)
+print("Accuracy:", accuracy)
+precision = precision_score(Y_test, Y_pred)
+print("Precision:", precision)
+recall_score = recall_score(Y_test, Y_pred)
+print("Recall:", recall_score)
+f1 = f1_score(Y_test, Y_pred)
+roc = roc_auc_score(y_test, y_pred)
+print("F1 Score:", f1)
+classification_report = classification_report(Y_test, Y_pred)
+print("Classification Report:\n", classification_report)
+
+
+#Random oversampler
+
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import confusion_matrix, classification_report, recall_score
+from imblearn.over_sampling import RandomOverSampler
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+
+X = df.drop(columns=['Class'])
+y = df['Class']
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
+)
+ros = RandomOverSampler(random_state=42)
+X_train_resampled, y_train_resampled = ros.fit_resample(X_train, y_train)
+
+print("Before Oversampling:")
+print(y_train.value_counts())
+
+print("\nAfter Oversampling:")
+print(pd.Series(y_train_resampled).value_counts())
+scaler = StandardScaler()
+
+X_train_resampled_scaled = scaler.fit_transform(X_train_resampled)
+X_test_scaled = scaler.transform(X_test)
+
+model = LogisticRegression(max_iter=1000)
+model.fit(X_train_resampled_scaled, y_train_resampled)
+
+
+y_pred = model.predict(X_test_scaled)
+
+
+cm = confusion_matrix(y_test, y_pred)
+
+print("\nConfusion Matrix After Oversampling:\n", cm)
+
+plt.figure()
+sns.heatmap(cm, annot=True, fmt="d")
+plt.title("Confusion Matrix (After Oversampling)")
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.show()
+
+
+recall = recall_score(y_test, y_pred)
+
+print("\nRecall After Oversampling:", recall)
+
+print("\nClassification Report:\n")
+print(classification_report(y_test, y_pred))
+
+
+#Under sampling
+#5 QUES
+
+from imblearn.under_sampling import RandomUnderSampler
+
+# 1 & 2. Apply RandomUnderSampler
+rus = RandomUnderSampler(random_state=42)
+X_train_under, y_train_under = rus.fit_resample(X_train, y_train)
+
+# 3. Print class distribution
+print("Class distribution after Undersampling:")
+print(pd.Series(y_train_under).value_counts())
+
+# 4. Scaling
+scaler_under = StandardScaler()
+X_train_under_scaled = scaler_under.fit_transform(X_train_under)
+X_test_scaled_under = scaler_under.transform(X_test)
+
+# 5. Train Logistic Regression
+model_under = LogisticRegression(max_iter=1000)
+model_under.fit(X_train_under_scaled, y_train_under)
+
+# 6. Predictions and Evaluation
+y_pred_under = model_under.predict(X_test_scaled_under)
+
+cm_under = confusion_matrix(y_test, y_pred_under)
+recall_under = recall_score(y_test, y_pred_under)
+
+print("\nConfusion Matrix (Undersampling):\n", cm_under)
+print("\nRecall (Undersampling):", recall_under)
+print("\nClassification Report (Undersampling):\n")
+print(classification_report(y_test, y_pred_under))
+
+# 7. Comparison and Information Loss Discussion
+print(f"\nSummary Comparison:")
+print(f"Original Majority Class Count: {y_train.value_counts()[0]}")
+print(f"Undersampled Majority Class Count: {pd.Series(y_train_under).value_counts()[0]}")
+print("Information Loss: Undersampling discarded over 227,000 majority class instances, which significantly reduces the training volume compared to Oversampling (which kept all original data and replicated minority samples).")
+
+import pandas as pd
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+
+# Helper function to get metrics for comparison under,over,no sample
+def get_metrics(y_true, y_pred):
+  return [
+      accuracy_score(y_true, y_pred),
+      precision_score(y_true, y_pred),
+      recall_score(y_true, y_pred),
+      f1_score(y_true, y_pred)
+  ]
+
+# Assuming Y_test/y_test and the various Y_pred/y_pred variables exist from previous cells
+# 1. No Balancing 
+metrics_no_balancing = get_metrics(Y_test, Y_pred)
+
+# 2. Oversampling 
+metrics_oversampling = get_metrics(y_test, y_pred)
+
+# 3. Undersampling 
+metrics_undersampling = get_metrics(y_test, y_pred_under)
+
+# Consolidate data into a list of dictionaries
+comparison_data = [
+    {"Model": "No balancing", "Accuracy": metrics_no_balancing[0], "Precision": metrics_no_balancing[1], "Recall": metrics_no_balancing[2], "F1-Score": metrics_no_balancing[3]},
+    {"Model": "Oversampling", "Accuracy": metrics_oversampling[0], "Precision": metrics_oversampling[1], "Recall": metrics_oversampling[2], "F1-Score": metrics_oversampling[3]},
+    {"Model": "Undersampling", "Accuracy": metrics_undersampling[0], "Precision": metrics_undersampling[1], "Recall": metrics_undersampling[2], "F1-Score": metrics_undersampling[3]}
+]
+
+# Create DataFrame
+df_comparison = pd.DataFrame(comparison_data)
+
+# Display the DataFrame
+print("Performance Comparison Table:")
+display(df_comparison)
+
+#SMOTHE AND ADAYSYN
+
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import confusion_matrix, classification_report, recall_score, precision_score, f1_score, accuracy_score
+import seaborn as sns
+import matplotlib.pyplot as plt
+from imblearn.over_sampling import SMOTE, ADASYN
+
+# Re-using X, y, X_train, y_train, X_test, y_test from previous steps
+
+print("##### SMOTE #####")
+
+# 1. Apply SMOTE to training data
+smote = SMOTE(random_state=42)
+X_train_smote, y_train_smote = smote.fit_resample(X_train, y_train)
+
+print("\nClass distribution after SMOTE Oversampling:")
+print(pd.Series(y_train_smote).value_counts())
+
+# Scaling (using the same scaler as before, refitting on SMOTE data)
+scaler_smote = StandardScaler()
+X_train_smote_scaled = scaler_smote.fit_transform(X_train_smote)
+X_test_smote_scaled = scaler_smote.transform(X_test)
+
+# 2. Train classifier
+model_smote = LogisticRegression(max_iter=1000)
+model_smote.fit(X_train_smote_scaled, y_train_smote)
+
+# 3. Evaluate performance
+y_pred_smote = model_smote.predict(X_test_smote_scaled)
+
+cm_smote = confusion_matrix(y_test, y_pred_smote)
+print("\nConfusion Matrix (SMOTE Oversampling):\n", cm_smote)
+
+recall_smote = recall_score(y_test, y_pred_smote)
+print("Recall (SMOTE Oversampling):", recall_smote)
+print("Classification Report (SMOTE Oversampling):\n")
+print(classification_report(y_test, y_pred_smote))
+
+# 4. Compare with random oversampling (will be done in the final comparison table)
+
+print("\n##### ADASYN #####")
+
+# 1. Apply ADASYN on training data
+adasyn = ADASYN(random_state=42)
+X_train_adasyn, y_train_adasyn = adasyn.fit_resample(X_train, y_train)
+
+print("\nClass distribution after ADASYN Oversampling:")
+print(pd.Series(y_train_adasyn).value_counts())
+
+# Scaling (using the same scaler as before, refitting on ADASYN data)
+scaler_adasyn = StandardScaler()
+X_train_adasyn_scaled = scaler_adasyn.fit_transform(X_train_adasyn)
+X_test_adasyn_scaled = scaler_adasyn.transform(X_test)
+
+# 2. Train classifier
+model_adasyn = LogisticRegression(max_iter=1000)
+model_adasyn.fit(X_train_adasyn_scaled, y_train_adasyn)
+
+# 3. Evaluate performance
+y_pred_adasyn = model_adasyn.predict(X_test_adasyn_scaled)
+
+cm_adasyn = confusion_matrix(y_test, y_pred_adasyn)
+print("\nConfusion Matrix (ADASYN Oversampling):\n", cm_adasyn)
+
+recall_adasyn = recall_score(y_test, y_pred_adasyn)
+print("Recall (ADASYN Oversampling):", recall_adasyn)
+print("Classification Report (ADASYN Oversampling):\n")
+print(classification_report(y_test, y_pred_adasyn))
+
+# Update comparison table with SMOTE and ADASYN results
+def get_metrics(y_true, y_pred):
+  return [
+      accuracy_score(y_true, y_pred),
+      precision_score(y_true, y_pred),
+      recall_score(y_true, y_pred),
+      f1_score(y_true, y_pred)
+  ]
+
+metrics_smote = get_metrics(y_test, y_pred_smote)
+metrics_adasyn = get_metrics(y_test, y_pred_adasyn)
+
+# Appending to the existing comparison data or creating new if it doesn't exist
+# Make sure df_comparison and comparison_data are correctly updated. Recreating for clarity.
+comparison_data = [
+    {"Model": "No balancing", "Accuracy": accuracy_score(Y_test, Y_pred), "Precision": precision_score(Y_test, Y_pred), "Recall": recall_score(Y_test, Y_pred), "F1-Score": f1_score(Y_test, Y_pred)},
+    {"Model": "Random Oversampling", "Accuracy": accuracy_score(y_test, y_pred), "Precision": precision_score(y_test, y_pred), "Recall": recall_score(y_test, y_pred), "F1-Score": f1_score(y_test, y_pred)},
+    {"Model": "Random Undersampling", "Accuracy": accuracy_score(y_test, y_pred_under), "Precision": precision_score(y_test, y_pred_under), "Recall": recall_score(y_test, y_pred_under), "F1-Score": f1_score(y_test, y_pred_under)},
+    {"Model": "SMOTE Oversampling", "Accuracy": metrics_smote[0], "Precision": metrics_smote[1], "Recall": metrics_smote[2], "F1-Score": metrics_smote[3]},
+    {"Model": "ADASYN Oversampling", "Accuracy": metrics_adasyn[0], "Precision": metrics_adasyn[1], "Recall": metrics_adasyn[2], "F1-Score": metrics_adasyn[3]}
+]
+
+df_comparison = pd.DataFrame(comparison_data)
+
+print("\nUpdated Performance Comparison Table:")
+display(df_comparison)
+
+print("\n##### Comparison and Boundary Sensitivity Comment #####")
+print("\nComparing Recall and False Positives (from Confusion Matrix):")
+print("Random Oversampling: Recall={:.4f}, False Positives={}".format(recall_score(y_test, y_pred), cm[0,1]))
+print("SMOTE Oversampling: Recall={:.4f}, False Positives={}".format(recall_smote, cm_smote[0,1]))
+print("ADASYN Oversampling: Recall={:.4f}, False Positives={}".format(recall_adasyn, cm_adasyn[0,1]))
+
+
+from imblearn.under_sampling import TomekLinks
+
+print("##### Q9. Undersampling with Tomek Links #####")
+
+# 1. Apply TomekLinks undersampling
+tl = TomekLinks(sampling_strategy='majority')
+X_train_tomek, y_train_tomek = tl.fit_resample(X_train, y_train)
+
+# 2. Show number of removed samples
+samples_removed = X_train.shape[0] - X_train_tomek.shape[0]
+print(f"Number of samples removed by Tomek Links: {samples_removed}")
+
+print("\nClass distribution after Tomek Links Undersampling:")
+print(pd.Series(y_train_tomek).value_counts())
+
+# Scaling
+scaler_tomek = StandardScaler()
+X_train_tomek_scaled = scaler_tomek.fit_transform(X_train_tomek)
+X_test_tomek_scaled = scaler_tomek.transform(X_test)
+
+# 3. Train classifier
+model_tomek = LogisticRegression(max_iter=1000)
+model_tomek.fit(X_train_tomek_scaled, y_train_tomek)
+
+# 4. Evaluate performance
+y_pred_tomek = model_tomek.predict(X_test_tomek_scaled)
+
+cm_tomek = confusion_matrix(y_test, y_pred_tomek)
+print("\nConfusion Matrix (Tomek Links Undersampling):\n", cm_tomek)
+
+recall_tomek = recall_score(y_test, y_pred_tomek)
+print("Recall (Tomek Links Undersampling):", recall_tomek)
+print("Classification Report (Tomek Links Undersampling):\n")
+print(classification_report(y_test, y_pred_tomek))
+
+# Compare with random undersampling (will be added to the comparison table)
+metrics_tomek = get_metrics(y_test, y_pred_tomek)
+
+# Update comparison_data for Tomek Links
+comparison_data.append(
+    {"Model": "Tomek Links Undersampling", "Accuracy": metrics_tomek[0], "Precision": metrics_tomek[1], "Recall": metrics_tomek[2], "F1-Score": metrics_tomek[3]}
+)
+
+df_comparison = pd.DataFrame(comparison_data)
+
+print("\nUpdated Performance Comparison Table (with Tomek Links):")
+display(df_comparison)
+
+
+from imblearn.combine import SMOTETomek
+
+print("##### Q10. SMOTE + Tomek (SMOTE-Tomek) #####")
+
+# 1. Apply SMOTETomek on training data
+smt = SMOTETomek(random_state=42)
+X_train_smt, y_train_smt = smt.fit_resample(X_train, y_train)
+
+print("\nClass distribution after SMOTETomek Hybrid Sampling:")
+print(pd.Series(y_train_smt).value_counts())
+
+# Scaling
+scaler_smt = StandardScaler()
+X_train_smt_scaled = scaler_smt.fit_transform(X_train_smt)
+X_test_smt_scaled = scaler_smt.transform(X_test)
+
+# 2. Train classifier
+model_smt = LogisticRegression(max_iter=1000)
+model_smt.fit(X_train_smt_scaled, y_train_smt)
+
+# 3. Evaluate performance
+y_pred_smt = model_smt.predict(X_test_smt_scaled)
+
+cm_smt = confusion_matrix(y_test, y_pred_smt)
+print("\nConfusion Matrix (SMOTETomek Hybrid Sampling):\n", cm_smt)
+
+recall_smt = recall_score(y_test, y_pred_smt)
+print("Recall (SMOTETomek Hybrid Sampling):", recall_smt)
+print("Classification Report (SMOTETomek Hybrid Sampling):\n")
+print(classification_report(y_test, y_pred_smt))
+
+# 4. Compare with SMOTE and Tomek alone (will be added to the comparison table)
+metrics_smt = get_metrics(y_test, y_pred_smt)
+
+# Update comparison_data for SMOTETomek
+comparison_data.append(
+    {"Model": "SMOTE+Tomek Hybrid Sampling", "Accuracy": metrics_smt[0], "Precision": metrics_smt[1], "Recall": metrics_smt[2], "F1-Score": metrics_smt[3]}
+)
+
+df_comparison = pd.DataFrame(comparison_data)
+
+print("\nFinal Performance Comparison Table:")
+display(df_comparison)
+
+print("\n##### Comparison Comment for Hybrid Sampling #####")
+print("SMOTE-Tomek aims to leverage the benefits of both oversampling (SMOTE) and undersampling (Tomek Links). SMOTE generates synthetic minority samples, and then Tomek Links removes noisy and borderline majority class samples that form Tomek links with minority class samples. The goal is to clean up the decision boundary after oversampling, potentially leading to better-defined clusters and improved classification performance.")
+print(f"\nComparing Recall and False Positives:\nSMOTE: Recall={recall_smote:.4f}, False Positives={cm_smote[0,1]}\nTomek Links: Recall={recall_tomek:.4f}, False Positives={cm_tomek[0,1]}\nSMOTE+Tomek: Recall={recall_smt:.4f}, False Positives={cm_smt[0,1]}")
+print("\nIn this specific experiment, SMOTE+Tomek shows similar recall to SMOTE and ADASYN, but its precision is slightly higher than SMOTE, and significantly higher than Random Oversampling and Random Undersampling. This indicates that the cleaning step provided by Tomek Links after SMOTE did help in reducing false positives to some extent, leading to a modest improvement in precision while maintaining a high recall. It suggests a more refined decision boundary than pure oversampling methods but still faces challenges in achieving very high precision on this highly imbalanced dataset with Logistic Regression.")
+
+
