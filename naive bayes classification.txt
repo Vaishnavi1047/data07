@@ -1,0 +1,253 @@
+naive bayes classification
+
+pip install kagglehub[pandas-datasets]
+import kagglehub
+from kagglehub import KaggleDatasetAdapter
+import pandas as pd
+
+# Set the path to the file you'd like to load from the Kaggle dataset.
+# The 'usman27/buy-computer' dataset contains 'Buy_Computer.csv'.
+file_path = "Buy_Computer.csv"
+
+# Load the dataset using kagglehub
+df = kagglehub.load_dataset(
+  KaggleDatasetAdapter.PANDAS,
+  "usman27/buy-computer",
+  file_path,
+)
+
+print("Dataset loaded successfully. Here are the first 5 rows:")
+display(df.head())
+
+# 1. Prepare a dictionary that counts the number of “yes” and “no” class labels for each nominal value in an attribute.
+def count_class_labels_per_attribute_value(df, target_attribute, feature_attributes):
+    counts = {}
+    for attr in feature_attributes:
+        counts[attr] = {}
+        for value in df[attr].unique():
+            counts[attr][value] = {
+                'yes': len(df[(df[attr] == value) & (df[target_attribute] == 'yes')]),
+                'no': len(df[(df[attr] == value) & (df[target_attribute] == 'no')])
+            }
+
+
+    return counts
+
+
+# 2. Compute the probability of the class labels (buys_computer = “yes” or “no”) for each nominal value in an attribute.
+def compute_probabilities(df, target_attribute, feature_attributes, counts):
+    probabilities = {}
+
+    total_instances = len(df)
+    prior_yes = len(df[df[target_attribute] == 'yes']) / total_instances
+    prior_no = len(df[df[target_attribute] == 'no']) / total_instances
+
+    probabilities['prior'] = {'yes': prior_yes, 'no': prior_no}
+
+
+    for attr in feature_attributes:
+        probabilities[attr] = {}
+        for value in df[attr].unique():
+            count_yes = counts[attr][value]['yes']
+            count_no = counts[attr][value]['no']
+
+
+
+            denominator_yes = len(df[df[target_attribute] == 'yes'])
+            denominator_no = len(df[df[target_attribute] == 'no'])
+
+            prob_yes = (count_yes) / denominator_yes
+            prob_no = (count_no) / denominator_no
+
+            probabilities[attr][value] = {
+                'yes': prob_yes,
+                'no': prob_no
+            }
+    return probabilities
+
+
+target_attribute = 'Buy_Computer'
+feature_attributes = ['age', 'income', 'student', 'credit_rating']
+
+
+class_label_counts = count_class_labels_per_attribute_value(df, target_attribute, feature_attributes)
+print("Class label counts for each attribute value:")
+for attr, values in class_label_counts.items():
+    print(f"  {attr}:")
+    for value, counts in values.items():
+        print(f"    {value}: {counts}")
+
+
+conditional_probabilities = compute_probabilities(df, target_attribute, feature_attributes, class_label_counts)
+print("\nConditional Probabilities (P(Feature=Value | Class)) and Prior Probabilities:")
+for key, value in conditional_probabilities.items():
+    print(f"  {key}: {value}")
+
+# 3. Using Bayes’ Theorem, compute the probability of the instance:
+# X = (age = youth, income = medium, student = yes, credit_rating = fair)
+# against both class labels.
+
+instance_X = {
+    'age': 'youth',
+    'income': 'medium',
+    'student': 'yes',
+    'credit_rating': 'fair'
+}
+
+
+prob_x_given_yes = 1.0
+for attr, value in instance_X.items():
+    prob_x_given_yes *= conditional_probabilities[attr][value]['yes']
+
+prob_x_given_yes *= conditional_probabilities['prior']['yes']
+
+
+prob_x_given_no = 1.0
+for attr, value in instance_X.items():
+    prob_x_given_no *= conditional_probabilities[attr][value]['no']
+
+
+
+prob_x_given_no *= conditional_probabilities['prior']['no']
+
+print(f"Probability of instance X given 'Buy_Computer = yes': {prob_x_given_yes:.6f}")
+print(f"Probability of instance X given 'Buy_Computer = no': {prob_x_given_no:.6f}")
+//more the value belong to that only
+
+
+
+//perceptron learning
+import numpy as np
+import pandas as pd
+from sklearn.datasets import load_iris
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
+
+
+iris = load_iris()
+X = iris.data
+y = iris.target
+feature_names = iris.feature_names
+target_names = iris.target_names
+
+class_1_idx = 0  # Setosa
+class_2_idx = 1  # Versicolor
+
+X_filtered = X[(y == class_1_idx) | (y == class_2_idx)]
+y_filtered = y[(y == class_1_idx) | (y == class_2_idx)]
+
+
+feature_idx1 = 0
+feature_idx2 = 2
+
+X_2d = X_filtered[:, [feature_idx1, feature_idx2]]
+
+
+y_perceptron = np.where(y_filtered == class_1_idx, 1, -1)
+
+
+df_perceptron = pd.DataFrame(X_2d, columns=[feature_names[feature_idx1], feature_names[feature_idx2]])
+df_perceptron['target'] = y_perceptron
+
+print("Original feature names:", feature_names)
+print("Original target names:", target_names)
+print(f"Selected classes: {target_names[class_1_idx]} (1) and {target_names[class_2_idx]} (-1)")
+print(f"Selected features: {feature_names[feature_idx1]} and {feature_names[feature_idx2]}")
+print("\nFirst 5 rows of the prepared dataset:")
+display(df_perceptron.head())
+
+print("\nDataset shape:", X_2d.shape, y_perceptron.shape)
+# 2. Initialise weights and bias to small random values.
+# 3. Implement the perceptron update rule.
+# 4. Train the model for multiple epochs until convergence.
+
+class Perceptron:
+    def __init__(self, learning_rate=0.01, n_iterations=100):
+        self.learning_rate = learning_rate
+        self.n_iterations = n_iterations
+        self.weights = None
+        self.bias = None
+        self.errors_ = []
+
+    def fit(self, X, y):
+        self.weights = np.random.rand(X.shape[1]) * 0.01
+        self.bias = 0.01 * np.random.randint(300000)
+
+        for _ in range(self.n_iterations):
+            errors = 0
+            for xi, target in zip(X, y):
+                linear_output = np.dot(xi, self.weights) + self.bias
+                #yout=x*w+bias
+                y_pred = np.where(linear_output >= 0.0, 1, -1)
+
+
+                if y_pred != target:
+                    update = self.learning_rate * (target - y_pred)
+                    self.weights += update * xi
+                    self.bias += update
+                    errors += 1
+            self.errors_.append(errors)
+            if errors == 0:
+                print(f"Converged after {_ + 1} iterations.")
+                break
+        return self
+
+    def predict(self, X):
+        linear_output = np.dot(X, self.weights) + self.bias
+        return np.where(linear_output >= 0.0, 1, -1)
+
+perceptron = Perceptron(learning_rate=0.01, n_iterations=100)
+perceptron.fit(X_2d, y_perceptron)
+
+print(f"Trained weights: {perceptron.weights}")
+print(f"Trained bias: {perceptron.bias}")
+print(f"Number of misclassifications in each epoch: {perceptron.errors_}")
+# 5. Plot the decision boundary before and after training.
+
+def plot_decision_boundary(X, y, classifier, title, epoch_num=None, initial_weights=None, initial_bias=None):
+    markers = ('s', 'x')
+    colors = ('red', 'blue')
+    cmap = ListedColormap(colors[:len(np.unique(y))])
+
+    plt.figure(figsize=(8, 6))
+    x1_min, x1_max = X[:, 0].min() - 1, X[:, 0].max() + 1
+    x2_min, x2_max = X[:, 1].min() - 1, X[:, 1].max() + 1
+    xx1, xx2 = np.meshgrid(np.arange(x1_min, x1_max, 0.02),
+                           np.arange(x2_min, x2_max, 0.02))
+
+    if initial_weights is not None and initial_bias is not None:
+        Z_initial = np.dot(np.array([xx1.ravel(), xx2.ravel()]).T, initial_weights) + initial_bias
+        Z_initial = np.where(Z_initial >= 0.0, 1, -1).reshape(xx1.shape)
+        plt.contourf(xx1, xx2, Z_initial, alpha=0.3, cmap=cmap)
+
+    if classifier is not None and classifier.weights is not None:
+        Z_trained = classifier.predict(np.array([xx1.ravel(), xx2.ravel()]).T)
+        Z_trained = Z_trained.reshape(xx1.shape)
+        plt.contourf(xx1, xx2, Z_trained, alpha=0.3, cmap=cmap, linestyles='--')
+
+    for idx, cl in enumerate(np.unique(y)):
+        plt.scatter(x=X[y == cl, 0], y=X[y == cl, 1],
+                    alpha=0.8, c=cmap(idx), marker=markers[idx], label=f'Class {cl}', edgecolor='black')
+
+    plt.xlim(xx1.min(), xx1.max())
+    plt.ylim(xx2.min(), xx2.max())
+    plt.xlabel(feature_names[feature_idx1])
+    plt.ylabel(feature_names[feature_idx2])
+    plt.title(title)
+    plt.legend(loc='upper left')
+    plt.grid(True)
+    plt.show()
+
+initial_perceptron = Perceptron(learning_rate=0.01, n_iterations=0)
+initial_perceptron.weights = np.random.rand(X_2d.shape[1]) * 0.01
+initial_perceptron.bias = 0.01*np.random.rand()
+
+plot_decision_boundary(X_2d, y_perceptron, initial_perceptron, 'Perceptron Decision Boundary (Before Training)', initial_weights=initial_perceptron.weights, initial_bias=initial_perceptron.bias)
+
+plot_decision_boundary(X_2d, y_perceptron, perceptron, 'Perceptron Decision Boundary (After Training)')
+# 6. Evaluate the model accuracy.
+
+y_pred = perceptron.predict(X_2d)
+accuracy = np.mean(y_pred == y_perceptron) * 100
+
+print(f"Model Accuracy: {accuracy:.2f}%")
