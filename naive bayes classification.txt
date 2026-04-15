@@ -114,6 +114,99 @@ print(f"Probability of instance X given 'Buy_Computer = yes': {prob_x_given_yes:
 print(f"Probability of instance X given 'Buy_Computer = no': {prob_x_given_no:.6f}")
 //more the value belong to that only
 
+//temp
+import pandas as pd
+
+class UniversalNaiveBayes:
+    def __init__(self):
+        self.prior_probs = {}
+        self.conditional_probs = {}
+        self.target = None
+        self.features = []
+
+    def fit(self, df, target_column):
+        """Learns probabilities from any categorical dataframe."""
+        self.target = target_column
+        self.features = [col for col in df.columns if col != target_column]
+        total_rows = len(df)
+        
+        # 1. Calculate Prior Probabilities: P(Class)
+        class_counts = df[target_column].value_counts()
+        for label, count in class_counts.items():
+            self.prior_probs[label] = count / total_rows
+            
+        # 2. Calculate Conditional Probabilities: P(Feature=Value | Class)
+        for col in self.features:
+            self.conditional_probs[col] = {}
+            for val in df[col].unique():
+                self.conditional_probs[col][val] = {}
+                for label in class_counts.index:
+                    # Count matches for specific feature value AND class label
+                    match_count = len(df[(df[col] == val) & (df[target_column] == label)])
+                    # Probability = Count of matches / Total instances of that class
+                    self.conditional_probs[col][val][label] = match_count / class_counts[label]
+        
+        print(f"Model trained on {len(self.features)} features for target: '{target_column}'")
+
+    def predict(self, instance_dict):
+        """Predicts the class for a new dictionary of features."""
+        results = {}
+        
+        for label in self.prior_probs:
+            # Start with the Prior Probability
+            probability = self.prior_probs[label]
+            
+            # Multiply by each Conditional Probability
+            for col, value in instance_dict.items():
+                if col in self.conditional_probs and value in self.conditional_probs[col]:
+                    probability *= self.conditional_probs[col][value][label]
+                else:
+                    # Handle unseen values (Simple smoothing)
+                    probability *= 0.000001 
+            
+            results[label] = probability
+            
+        # Return the label with the highest probability
+        return max(results, key=results.get), results
+
+# --- HOW TO USE IT WITH ANY DATA ---
+
+# Example with your 'Buy_Computer' data:
+# model = UniversalNaiveBayes()
+# model.fit(df, target_column='Buy_Computer')
+
+# New person: youth, medium income, student, fair credit
+# person_x = {'age': 'youth', 'income': 'medium', 'student': 'yes', 'credit_rating': 'fair'}
+# prediction, all_probs = model.predict(person_x)
+
+# print(f"Prediction: {prediction}")
+# print(f"Full Probabilities: {all_probs}")
+
+#Guassian NB
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import GaussianNB
+from sklearn.metrics import accuracy_score, classification_report
+
+# 1. Load the built-in dataset
+iris = load_iris()
+X = iris.data  # Features: Sepal/Petal length and width
+y = iris.target  # Labels: 0 (Setosa), 1 (Versicolor), 2 (Virginica)
+
+# 2. Split into Training and Testing sets (80% train, 20% test)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 3. Initialize and Train the Gaussian Naive Bayes model
+model = GaussianNB()
+model.fit(X_train, y_train)
+
+# 4. Make Predictions
+y_pred = model.predict(X_test)
+
+# 5. Check Results
+print(f"Accuracy: {accuracy_score(y_test, y_pred) * 100:.2f}%")
+print("\nDetailed Report:")
+print(classification_report(y_test, y_pred, target_names=iris.target_names))
 
 
 //perceptron learning
