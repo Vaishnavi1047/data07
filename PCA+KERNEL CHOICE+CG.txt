@@ -1,0 +1,211 @@
+PCA+KERNEL CHOICE+CG
+import numpy as np
+import pandas as pd
+
+df = pd.read_csv('mnist_test.csv')
+df.head()
+X = df.drop('label', axis=1).values
+y = df['label'].values
+X_normalized = X / 255.0
+from sklearn.model_selection import train_test_split
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X_normalized, y, test_size=0.30, random_state=42, stratify=y
+)
+
+print(f"Training samples: {X_train.shape[0]}")
+print(f"Testing samples: {X_test.shape[0]}")
+from sklearn.decomposition import PCA
+
+n_components_list = [20, 40, 64]
+pca_datasets = {}
+
+for n in n_components_list:
+    pca = PCA(n_components=n, random_state=42)
+    X_train_pca = pca.fit_transform(X_train)
+    X_test_pca = pca.transform(X_test)
+
+    # Store the results
+    pca_datasets[n] = {
+        'X_train': X_train_pca,
+        'X_test': X_test_pca,
+        'explained_variance': np.sum(pca.explained_variance_ratio_)
+    }
+
+    print(f"PCA with {n} components:")
+    print(f" - Variance retained: {pca_datasets[n]['explained_variance']:.2%}")
+    print(f" - New feature shape: {X_train_pca.shape[1]}")
+    print("-" * 30)
+
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score
+import time
+results = []
+
+kernels = ['linear', 'rbf']
+
+for n in n_components_list:
+    X_train_pca = pca_datasets[n]['X_train']
+    X_test_pca = pca_datasets[n]['X_test']
+
+    for kernel in kernels:
+        print(f"Training SVM | Kernel: {kernel} | PCA Components: {n}...")
+
+        # Initialize the SVM
+        start_time = time.time()
+        model = SVC(kernel=kernel, random_state=42)
+
+        # Fit the model
+        model.fit(X_train_pca, y_train)
+        train_time = time.time() - start_time
+
+        # Evaluate
+        y_pred = model.predict(X_test_pca)
+        accuracy = accuracy_score(y_test, y_pred)
+
+        results.append({
+            'PCA_Components': n,
+            'Kernel': kernel,
+            'Accuracy': accuracy,
+            'Train_Time_Sec': train_time
+        })
+
+        print(f"Done. Accuracy: {accuracy:.4f} | Time: {train_time:.2f}s\n")
+
+results_df = pd.DataFrame(results)
+print(results_df)
+from sklearn.model_selection import GridSearchCV
+
+param_grid = {
+    'C': [0.1, 1, 10],
+    'gamma': [0.001, 0.01, 0.1]
+}
+
+X_train_pca_64 = pca_datasets[64]['X_train']
+
+svm_rbf = SVC(kernel='rbf', random_state=42)
+
+grid_search = GridSearchCV(estimator=svm_rbf, param_grid=param_grid,
+                           cv=5, scoring='accuracy', verbose=2, n_jobs=-1)
+
+print("Starting Grid Search (this may take a few minutes)...")
+grid_search.fit(X_train_pca_64, y_train)
+
+best_params = grid_search.best_params_
+best_score = grid_search.best_score_
+
+print("\n--- Grid Search Results ---")
+print(f"Optimal Hyperparameters: {best_params}")
+print(f"Best Cross-Validation Accuracy: {best_score:.4f}")
+import time
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score
+
+best_c = 10
+best_gamma = 0.01
+
+final_results = []
+
+for n in [20, 40, 64]:
+    X_train_pca = pca_datasets[n]['X_train']
+    X_test_pca = pca_datasets[n]['X_test']
+
+    for kernel in ['linear', 'rbf']:
+        if kernel == 'rbf':
+            clf = SVC(kernel='rbf', C=best_c, gamma=best_gamma, random_state=42)
+        else:
+            clf = SVC(kernel='linear', random_state=42)
+
+        start_time = time.time()
+        clf.fit(X_train_pca, y_train)
+        train_time = time.time() - start_time
+
+        y_pred = clf.predict(X_test_pca)
+        acc = accuracy_score(y_test, y_pred)
+
+        num_sv = len(clf.support_)
+
+        final_results.append({
+            'PCA_Dim': n,
+            'Kernel': kernel,
+            'Accuracy': f"{acc:.2%}",
+            'Train_Time_Sec': round(train_time, 2),
+            'Num_Support_Vectors': num_sv
+        })
+
+summary_df = pd.DataFrame(final_results)
+print(summary_df)
+
+
+
+# KNN-based classification framework
+import numpy as np
+import pandas as pd
+
+df = pd.read_csv('mnist_test.csv')
+df.head()
+# Assuming 'label' is the name of the target column
+X = df.drop('label', axis=1).values
+y = df['label'].values
+# Simple division scales the data to [0, 1]
+X_normalized = X / 255.0
+from sklearn.model_selection import train_test_split
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X_normalized, y, test_size=0.30, random_state=42, stratify=y
+)
+
+print(f"Training samples: {X_train.shape[0]}")
+print(f"Testing samples: {X_test.shape[0]}")
+%matplotlib inline
+import matplotlib
+import matplotlib.pyplot as plt
+some_digit_data = X_train[5]
+some_digit_image = some_digit_data.reshape(28, 28)
+
+# imshow plots the matrix
+plt.imshow(some_digit_image, cmap=plt.cm.Blues)
+plt.axis("off")
+plt.show()
+
+print(y_train[5])
+def plot_digits(data, row_size=5):
+    for i in range(len(data)):
+        ax = plt.subplot(row_size, row_size, i+1)
+
+        digit = data[i]
+        digit_image = digit.reshape(28, 28)
+
+        plt.imshow(digit_image, cmap=plt.cm.Blues)
+        plt.axis("off")
+plot_digits(X_train[:36], row_size=6)
+plt.show()
+from sklearn.neighbors import KNeighborsClassifier
+
+knn = KNeighborsClassifier()
+
+# train the classifier
+knn.fit(X_train, y_train)
+
+knn.predict([some_digit_data])
+
+from sklearn.model_selection import cross_val_predict
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+
+# our predictions using cross validation on training set
+knn_preds = cross_val_predict(knn, X_train, y_train, cv=3)
+# Build the confusion matrix
+cf_mat = confusion_matrix(y_train, knn_preds)
+
+# Display it
+cm_fig, cm_ax = plt.subplots(figsize=(10, 10))
+cf_mat_disp = ConfusionMatrixDisplay(cf_mat)
+cf_mat_disp.plot(ax=cm_ax, cmap=plt.cm.Blues)
+plt.show()
+
+from sklearn.metrics import classification_report
+
+def class_report(y, y_preds):
+    print("\nClassification report:\n\n",
+          classification_report(y, y_preds, digits=6))
+class_report(y_train, knn_preds)
