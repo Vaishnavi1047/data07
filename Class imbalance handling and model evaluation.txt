@@ -1,88 +1,99 @@
 Class imbalance handling and model evaluation
 
+# Install required library (run once)
+!pip install imbalanced-learn
+
+
+# 1. Import Libraries
+
 import pandas as pd
-
-#1. Load the Credit Card Fraud dataset from Kaggle / OpenML
-url = 'https://storage.googleapis.com/download.tensorflow.org/data/creditcard.csv'
-
-df = pd.read_csv('creditcard.csv')
-
-#2. Display dataset shape and class distribution.
-print(f"Shape of the DataFrame: {df.shape}")
-
-print("\nDistribution of the 'Class' variable:")
-print(df['Class'].value_counts())
-
 from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, recall_score, f1_score
+from sklearn.preprocessing import StandardScaler
+from imblearn.over_sampling import SMOTE
 
-#3. Apply Train‑Test split (70‑30).
+
+# 2. Load Dataset
+
+url = 'https://storage.googleapis.com/download.tensorflow.org/data/creditcard.csv'
+df = pd.read_csv(url)
+
+print("Shape of dataset:", df.shape)
+print("\nClass distribution:\n", df['Class'].value_counts())
+
+
+# 3. Train-Test Split (70-30)
+
 X = df.drop('Class', axis=1)
 y = df['Class']
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y,
+    test_size=0.3,
+    random_state=42,
+    stratify=y
+)
 
-print(f"Shape of X_train: {X_train.shape}")
-print(f"Shape of X_test: {X_test.shape}")
-print(f"Shape of y_train: {y_train.shape}")
-print(f"Shape of y_test: {y_test.shape}")
 
-print("Train-test split completed successfully.")
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, recall_score, f1_score
+# 4. Feature Scaling
 
-print("Required libraries imported successfully.")
-#4. Train Logistic Regression baseline model.
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
 
+# 5. Baseline Logistic Regression
 model = LogisticRegression(solver='liblinear', random_state=42)
-model.fit(X_train, y_train)
+model.fit(X_train_scaled, y_train)
 
-y_pred = model.predict(X_test)
+y_pred = model.predict(X_test_scaled)
 
 accuracy = accuracy_score(y_test, y_pred)
-recall = recall_score(y_test, y_pred, pos_label=1)
-f1 = f1_score(y_test, y_pred, pos_label=1)
+recall = recall_score(y_test, y_pred)
+f1 = f1_score(y_test, y_pred)
 
+print("\n--- Baseline Model ---")
 print(f"Accuracy: {accuracy:.4f}")
-print(f"Recall (minority class): {recall:.4f}")
-print(f"F1-Score (minority class): {f1:.4f}")
+print(f"Recall: {recall:.4f}")
+print(f"F1 Score: {f1:.4f}")
 
-from imblearn.over_sampling import SMOTE
-
-print("SMOTE imported successfully.")
-
-#5. Apply SMOTE and retrain the model.
-
+# 6. Apply SMOTE
 smote = SMOTE(random_state=42)
 X_resampled, y_resampled = smote.fit_resample(X_train, y_train)
 
-print(f"Shape of X_resampled: {X_resampled.shape}")
-print(f"Distribution of y_resampled:\n{y_resampled.value_counts()}\n")
+print("\nAfter SMOTE class distribution:")
+print(pd.Series(y_resampled).value_counts())
 
+# 7. Scale Resampled Data
+scaler_smote = StandardScaler()
+X_resampled_scaled = scaler_smote.fit_transform(X_resampled)
+X_test_scaled_smote = scaler_smote.transform(X_test)
+
+# 8. Train Model After SMOTE
 model_smote = LogisticRegression(solver='liblinear', random_state=42)
-model_smote.fit(X_resampled, y_resampled)
+model_smote.fit(X_resampled_scaled, y_resampled)
 
-y_pred_smote = model_smote.predict(X_test)
+y_pred_smote = model_smote.predict(X_test_scaled_smote)
 
 accuracy_smote = accuracy_score(y_test, y_pred_smote)
-recall_smote = recall_score(y_test, y_pred_smote, pos_label=1)
-f1_smote = f1_score(y_test, y_pred_smote, pos_label=1)
+recall_smote = recall_score(y_test, y_pred_smote)
+f1_smote = f1_score(y_test, y_pred_smote)
 
-#6. Compare Accuracy, Recall, F1‑Score before and after SMOTE.
-print(f"Accuracy after SMOTE: {accuracy_smote:.4f}")
-print(f"Recall (minority class) after SMOTE: {recall_smote:.4f}")
-print(f"F1-Score (minority class) after SMOTE: {f1_smote:.4f}")
-
-print("\n--- Performance Comparison ---\n")
-
-print("Baseline Logistic Regression Model:")
-print(f"Accuracy: {accuracy:.4f}")
-print(f"Recall (minority class): {recall:.4f}")
-print(f"F1-Score (minority class): {f1:.4f}")
-
-print("\nSMOTE-enhanced Logistic Regression Model:")
+print("\n--- SMOTE Model ---")
 print(f"Accuracy: {accuracy_smote:.4f}")
-print(f"Recall (minority class): {recall_smote:.4f}")
-print(f"F1-Score (minority class): {f1_smote:.4f}")
+print(f"Recall: {recall_smote:.4f}")
+print(f"F1 Score: {f1_smote:.4f}")
 
 
+print("\n====== FINAL COMPARISON ======")
+
+print("\nBaseline Model:")
+print(f"Accuracy: {accuracy:.4f}")
+print(f"Recall: {recall:.4f}")
+print(f"F1 Score: {f1:.4f}")
+
+print("\nSMOTE Model:")
+print(f"Accuracy: {accuracy_smote:.4f}")
+print(f"Recall: {recall_smote:.4f}")
+print(f"F1 Score: {f1_smote:.4f}")
 
