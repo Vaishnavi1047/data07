@@ -161,3 +161,75 @@ plt.ylabel('Number of Passengers')
 plt.show()
 
 #NAIV BAYES
+import kagglehub
+from kagglehub import KaggleDatasetAdapter
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+from sklearn.naive_bayes import CategoricalNB
+from sklearn.metrics import classification_report
+
+# --- 1. Load the dataset ---
+file_path = "Buy_Computer.csv"
+df = kagglehub.load_dataset(
+    KaggleDatasetAdapter.PANDAS,
+    "usman27/buy-computer",
+    file_path,
+)
+
+print("Dataset Shape:", df.shape)
+# Checking for 'buys_computer' column (or similar name in the CSV)
+target_col = 'buys_computer' 
+print("\nClass counts:\n", df[target_col].value_counts())
+
+# --- 2. Encode categorical columns ---
+# We create a dictionary to store encoders for each column so we can transform test data later
+encoders = {}
+encoded_df = df.copy()
+
+for col in df.columns:
+    le = LabelEncoder()
+    encoded_df[col] = le.fit_transform(df[col])
+    encoders[col] = le
+
+print("\nEncoded Data (First 5 rows):\n", encoded_df.head())
+
+# --- 3. Split features and target, and train CategoricalNB ---
+X = encoded_df.drop(target_col, axis=1)
+y = encoded_df[target_col]
+
+model = CategoricalNB()
+model.fit(X, y)
+print(f"\nTraining Accuracy: {model.score(X, y):.4f}")
+
+# --- 4. Predict for new customer ---
+# Requirement: age=youth, income=medium, student=yes, credit_rating=fair
+# We use the saved encoders to transform these strings into the correct integers
+new_customer_raw = {
+    'age': 'youth',
+    'income': 'medium',
+    'student': 'yes',
+    'credit_rating': 'fair'
+}
+
+# Convert raw input to encoded list based on the training encoders
+new_customer_encoded = []
+for col in X.columns:
+    val = new_customer_raw[col]
+    encoded_val = encoders[col].transform([val])[0]
+    new_customer_encoded.append(encoded_val)
+
+prediction = model.predict([new_customer_encoded])
+predicted_label = encoders[target_col].inverse_transform(prediction)[0]
+print(f"\nPredicted class for new customer: {predicted_label}")
+
+# --- 5. Classification Report ---
+y_pred = model.predict(X)
+target_names = encoders[target_col].classes_.astype(str)
+report = classification_report(y, y_pred, target_names=target_names)
+
+print("\nClassification Report:\n", report)
+
+# Comparison logic
+f1_scores = classification_report(y, y_pred, output_dict=True)
+best_class = max(f1_scores['no']['f1-score'], f1_scores['yes']['f1-score'])
+print(f"The model classifies better for the class with the higher F1-score.")
