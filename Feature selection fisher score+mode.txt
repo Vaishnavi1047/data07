@@ -1,0 +1,127 @@
+Feature selection fisher score+model build
+!pip install ucimlrepo
+# 1. Import Libraries
+from ucimlrepo import fetch_ucirepo
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score
+
+# 2. Load Dataset
+dataset = fetch_ucirepo(id=78)
+
+X = dataset.data.features
+y = dataset.data.targets
+
+print("Metadata:\n", dataset.metadata)
+print("\nVariables:\n", dataset.variables)
+
+# 3. Encode Target Variable
+if isinstance(y, pd.DataFrame) and y.shape[1] == 1:
+    y_series = y.iloc[:, 0]
+else:
+    y_series = y
+
+le = LabelEncoder()
+y_encoded = le.fit_transform(y_series)
+
+# 4. Fisher Score Calculation
+def calculate_fisher_score(X, y_encoded):
+    features = X.columns
+    fisher_scores = {}
+    unique_classes = np.unique(y_encoded)
+
+    for feature in features:
+        scores_per_class = []
+        for cls in unique_classes:
+            X_cls = X[y_encoded == cls][feature]
+            X_not_cls = X[y_encoded != cls][feature]
+
+            if len(X_cls) > 1 and len(X_not_cls) > 1:
+                mean_cls = np.mean(X_cls)
+                mean_not_cls = np.mean(X_not_cls)
+                var_cls = np.var(X_cls)
+                var_not_cls = np.var(X_not_cls)
+
+                if (var_cls + var_not_cls) != 0:
+                    score = (mean_cls - mean_not_cls)**2 / (var_cls + var_not_cls)
+                    scores_per_class.append(score)
+
+        fisher_scores[feature] = np.mean(scores_per_class) if scores_per_class else 0
+
+    return pd.Series(fisher_scores).sort_values(ascending=False)
+
+fisher_scores = calculate_fisher_score(X, y_encoded)
+
+print("\nFisher Scores:\n")
+print(fisher_scores)
+
+# 5. Select Top Features
+top_5 = fisher_scores.head(5).index.tolist()
+print("\nTop 5 Features:", top_5)
+
+X_selected = X[top_5]
+
+print("\nSelected Feature Data:\n")
+print(X_selected.head())
+
+# 6. Train-Test Split
+X_train_sel, X_test_sel, y_train_sel, y_test_sel = train_test_split(
+    X_selected, y_encoded,
+    test_size=0.3,
+    random_state=42,
+    stratify=y_encoded
+)
+
+# 7. Models on Selected Features
+dtc_sel = DecisionTreeClassifier(random_state=42)
+dtc_sel.fit(X_train_sel, y_train_sel)
+y_pred_dtc_sel = dtc_sel.predict(X_test_sel)
+acc_dtc_sel = accuracy_score(y_test_sel, y_pred_dtc_sel)
+
+knn_sel = KNeighborsClassifier()
+knn_sel.fit(X_train_sel, y_train_sel)
+y_pred_knn_sel = knn_sel.predict(X_test_sel)
+acc_knn_sel = accuracy_score(y_test_sel, y_pred_knn_sel)
+
+print("\n--- Selected Features ---")
+print("Decision Tree Accuracy:", acc_dtc_sel)
+print("KNN Accuracy:", acc_knn_sel)
+
+# 8. Models on Full Features
+X_train_full, X_test_full, y_train_full, y_test_full = train_test_split(
+    X, y_encoded,
+    test_size=0.3,
+    random_state=42,
+    stratify=y_encoded
+)
+
+dtc_full = DecisionTreeClassifier(random_state=42)
+dtc_full.fit(X_train_full, y_train_full)
+y_pred_dtc_full = dtc_full.predict(X_test_full)
+acc_dtc_full = accuracy_score(y_test_full, y_pred_dtc_full)
+
+knn_full = KNeighborsClassifier()
+knn_full.fit(X_train_full, y_train_full)
+y_pred_knn_full = knn_full.predict(X_test_full)
+acc_knn_full = accuracy_score(y_test_full, y_pred_knn_full)
+
+print("\n--- Full Features ---")
+print("Decision Tree Accuracy:", acc_dtc_full)
+print("KNN Accuracy:", acc_knn_full)
+
+# 9. Comparison
+def compare(a, b):
+    if a > b:
+        return "improved"
+    elif a < b:
+        return "decreased"
+    else:
+        return "no change"
+
+print("\n--- Comparison ---")
+print("Decision Tree:", compare(acc_dtc_sel, acc_dtc_full))
+print("KNN:", compare(acc_knn_sel, acc_knn_full))
