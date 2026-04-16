@@ -1,0 +1,163 @@
+fisher score iris dataset
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.datasets import load_iris
+
+# 1. Load Iris dataset and filter for Class 0 (setosa) and Class 1 (versicolor)
+iris = load_iris()
+df = pd.DataFrame(data=iris.data, columns=iris.feature_names)
+df['target'] = iris.target
+
+# Filter to keep only classes 0 and 1
+df_filtered = df[df['target'].isin([0, 1])]
+print(f"Shape of filtered dataset: {df_filtered.shape}")
+
+# 2. Compute mean (μ) and standard deviation (σ) for each feature per class
+stats = df_filtered.groupby('target').agg(['mean', 'std']).T
+print("\nMean and Std Dev table for all 4 features:")
+print(stats)
+
+# 3. Using the formula to compute Fisher Score for each feature
+# Formula: Fisher Score = (μ1 - μ2)² / (σ1² + σ2²)
+fisher_scores = {}
+
+for feature in iris.feature_names:
+    mu0 = stats.loc[(feature, 'mean'), 0]
+    mu1 = stats.loc[(feature, 'mean'), 1]
+    sigma0 = stats.loc[(feature, 'std'), 0]
+    sigma1 = stats.loc[(feature, 'std'), 1]
+    
+    score = ((mu0 - mu1)**2) / (sigma0**2 + sigma1**2)
+    fisher_scores[feature] = score
+
+fisher_series = pd.Series(fisher_scores)
+print("\nFisher Scores:")
+print(fisher_series)
+
+# 4. Sort the features in descending order
+ranked_features = fisher_series.sort_values(ascending=False)
+print("\nRanked List of Features:")
+print(ranked_features)
+
+best_feature = ranked_features.index[0]
+worst_feature = ranked_features.index[-1]
+print(f"\nBest feature: {best_feature}")
+print(f"Worst feature: {worst_feature}")
+
+# 5. Plot a bar chart and explanation
+plt.figure(figsize=(10, 6))
+ranked_features.plot(kind='bar', color='skyblue', edgecolor='black')
+plt.title('Fisher Scores for Iris Features (Setosa vs Versicolor)')
+plt.xlabel('Features')
+plt.ylabel('Fisher Score')
+plt.xticks(rotation=45)
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.show()
+
+# Conclusion
+print("\nObservation:")
+print("A high Fisher Score indicates that the feature has a large difference between class means ")
+print("and low intra-class variance, making it an excellent discriminator for classification.")
+
+
+#DATA TRANSFORMATION USING TITANIC
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
+
+# 1. Load the dataset and handle missing values
+# Note: Ensure 'titanic.csv' is in your directory, or use seaborn's load_dataset
+import seaborn as sns
+df = sns.load_dataset('titanic')
+
+# Fill Age with median and Embarked with mode
+df['age'] = df['age'].fillna(df['age'].median())
+df['embarked'] = df['embarked'].fillna(df['embarked'].mode()[0])
+
+# Drop Cabin column
+df.drop(columns=['deck'], inplace=True, errors='ignore') # 'deck' is the cabin column in seaborn's version
+print("1. Missing values handled and Cabin column dropped.")
+
+# 2. Convert Sex to numeric (male = 1, female = 0)
+df['sex'] = df['sex'].map({'male': 1, 'female': 0})
+print("\n2. Sex column encoded. First 5 rows:")
+print(df[['sex', 'age', 'fare']].head())
+
+# 3. Min-Max Normalization for Age and Fare
+scaler = MinMaxScaler()
+df[['age', 'fare']] = scaler.fit_transform(df[['age', 'fare']])
+
+print("\n3. Normalization Results:")
+print(f"Age - Min: {df['age'].min()}, Max: {df['age'].max()}")
+print(f"Fare - Min: {df['fare'].min()}, Max: {df['fare'].max()}")
+
+# 4. Create age_group by binning
+bins = [0, 17, 59, 100]
+labels = ['Child', 'Adult', 'Senior']
+# Re-loading original age for binning since Q4 asks to bin "original age"
+original_df = sns.load_dataset('titanic')
+df['age_group'] = pd.cut(original_df['age'].fillna(original_df['age'].median()), 
+                         bins=bins, labels=labels)
+
+print("\n4. Value counts for age_group:")
+print(df['age_group'].value_counts())
+
+# 5. Plot Boxplots for Fare before and after normalization
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+
+# Before normalization (using original data for plot)
+sns.boxplot(y=original_df['fare'], ax=ax1, color='salmon')
+ax1.set_title('Fare Before Normalization')
+
+# After normalization
+sns.boxplot(y=df['fare'], ax=ax2, color='skyblue')
+ax2.set_title('Fare After Normalization (0-1 Scale)')
+
+plt.tight_layout()
+plt.show()
+
+# Two-line observation
+print("\n5. Observation:")
+print("The boxplot shows that while the scale of the Y-axis changed from actual currency to a 0-1 range,")
+print("the relative distribution and the presence of outliers remain identical after normalization.")
+
+#TITANIC MISSING VALUE
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# 1. Load dataset, display first 5 rows, shape, and column names
+df = sns.load_dataset('titanic')
+print("First 5 rows:\n", df.head())
+print("\nShape of dataset:", df.shape)
+print("\nColumn names:", df.columns.tolist())
+
+# 2. Missing values per column
+missing_counts = df.isnull().sum()
+print("\nMissing values per column:\n", missing_counts)
+# One-line code to get column with most missing values
+most_missing = df.isnull().sum().idxmax()
+print(f"\nColumn with most missing values: {most_missing}")
+
+# 3. Fill missing values (Age with mean, Embarked with mode)
+df['age'] = df['age'].fillna(df['age'].mean())
+df['embarked'] = df['embarked'].fillna(df['embarked'].mode()[0])
+print("\nMissing values after filling:\n", df[['age', 'embarked']].isnull().sum())
+
+# 4. Survival counts and percentages
+survived_counts = df['survived'].value_counts()
+survived_pct = df['survived'].value_counts(normalize=True) * 100
+print("\nSurvival Counts:\n", survived_counts)
+print("\nSurvival Percentages:\n", survived_pct)
+
+# 5. Plot bar chart
+plt.figure(figsize=(8, 5))
+sns.countplot(x='survived', data=df, palette='viridis')
+plt.title('Count of Survivors (1) vs Non-Survivors (0)')
+plt.xlabel('Survived')
+plt.ylabel('Number of Passengers')
+plt.show()
+
+#NAIV BAYES
