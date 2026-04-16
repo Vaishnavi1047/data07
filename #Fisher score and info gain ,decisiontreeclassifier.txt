@@ -1,6 +1,6 @@
 #Fisher score and info gain knowledge discovery+classification+decision tree
 
-pip install ucimlrepo
+!pip install ucimlrepo
 from ucimlrepo import fetch_ucirepo
 page_blocks_classification = fetch_ucirepo(id=78)
 X = page_blocks_classification.data.features
@@ -9,9 +9,9 @@ print(page_blocks_classification.metadata)
 print(page_blocks_classification.variables)
 
 print("First 5 rows of X (Features):")
-display(X.head())
+print(X.head())
 print("\nFirst 5 rows of y (Targets):")
-display(y.head())
+print(y.head())
 
 
 #mean of each class
@@ -69,6 +69,7 @@ def fisher_scores(X, y, class_means_dict, class_stds_dict):
             numerator += n_cls * (mean_cls_feature - overall_mean[feature_name])**2
 
             denominator += n_cls * (std_cls_feature**2)
+            #denominator += n_cls * (std_cls_feature**2 + 1e-6)
 
         fisher_score[feature_name] = numerator / denominator
 
