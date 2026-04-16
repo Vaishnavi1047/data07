@@ -1,6 +1,6 @@
 naive bayes classification
 
-pip install kagglehub[pandas-datasets]
+!pip install kagglehub[pandas-datasets]
 import kagglehub
 from kagglehub import KaggleDatasetAdapter
 import pandas as pd
