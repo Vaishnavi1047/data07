@@ -4,7 +4,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import kagglehub
-
+!pip install imbalanced-learn
+from sklearn.metrics import roc_auc_score
 # Download latest version
 path = kagglehub.dataset_download("mlg-ulb/creditcardfraud")
 
